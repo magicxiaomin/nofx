@@ -194,9 +194,9 @@ export function RiskControlEditor({
                   updateField('btc_eth_max_position_value_ratio', parseFloat(e.target.value))
                 }
                 disabled={disabled}
-                min={0.5}
+                min={0.1}
                 max={10}
-                step={0.5}
+                step={0.1}
                 className="flex-1 accent-green-500"
               />
               <span
@@ -226,9 +226,9 @@ export function RiskControlEditor({
                   updateField('altcoin_max_position_value_ratio', parseFloat(e.target.value))
                 }
                 disabled={disabled}
-                min={0.5}
+                min={0.1}
                 max={10}
-                step={0.5}
+                step={0.1}
                 className="flex-1 accent-green-500"
               />
               <span
