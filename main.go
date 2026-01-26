@@ -15,6 +15,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"nofx/telegram"
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
