@@ -1,23 +1,43 @@
-# Railway All-in-One: 复用现有 GHCR 镜像
-# 从现有镜像提取内容，合并到一个容器
+# --- 第一阶段：编译环境 (构建后端二进制) ---
+FROM golang:1.21-alpine AS builder
 
-# 从后端镜像提取二进制
-FROM ghcr.io/nofxaios/nofx/nofx-backend:latest AS backend
+# 安装构建 CGO 项目所需的工具（TA-Lib 依赖 C 环境）
+RUN apk add --no-cache gcc musl-dev linux-headers git
 
-# 从前端镜像提取静态文件
+# 从原有的后端镜像中直接获取 TA-Lib 的头文件和库文件（节省编译 TA-Lib 的时间）
+COPY --from=ghcr.io/nofxaios/nofx/nofx-backend:latest /usr/local/include/ta-lib /usr/local/include/ta-lib
+COPY --from=ghcr.io/nofxaios/nofx/nofx-backend:latest /usr/local/lib/libta_lib* /usr/local/lib/
+
+WORKDIR /app
+
+# 1. 下载依赖
+COPY go.mod go.sum ./
+RUN go mod download
+
+# 2. 复制当前目录下的所有源代码（包括你修改的 bot.go 和 main.go）
+COPY . .
+
+# 3. 编译程序
+# CGO_ENABLED=1 是必须的，因为用到了 TA-Lib C 库
+# 编译当前目录下的所有文件并输出为 nofx-bin
+RUN CGO_ENABLED=1 GOOS=linux go build -o nofx-bin .
+
+# --- 第二阶段：获取前端静态文件 ---
 FROM ghcr.io/nofxaios/nofx/nofx-frontend:latest AS frontend
 
-# 最终镜像
+# --- 第三阶段：最终运行环境 ---
 FROM alpine:latest
 
-RUN apk add --no-cache ca-certificates tzdata sqlite nginx openssl gettext
+# 安装运行时必要的包
+RUN apk add --no-cache ca-certificates tzdata sqlite nginx openssl gettext wget
 
-# 复制后端二进制
-COPY --from=backend /app/nofx /app/nofx
+# 复制后端运行时需要的 TA-Lib 库文件
+COPY --from=builder /usr/local/lib/libta_lib* /usr/local/lib/
+# 设置系统库路径，确保程序能找到 TA-Lib
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
 
-# 复制 TA-Lib 库
-COPY --from=backend /usr/local/lib/libta_lib* /usr/local/lib/
-RUN ldconfig /usr/local/lib 2>/dev/null || true
+# 复制刚才在第一阶段编译出的最新二进制文件
+COPY --from=builder /app/nofx-bin /app/nofx
 
 # 复制前端静态文件
 COPY --from=frontend /usr/share/nginx/html /usr/share/nginx/html
@@ -25,15 +45,16 @@ COPY --from=frontend /usr/share/nginx/html /usr/share/nginx/html
 WORKDIR /app
 RUN mkdir -p /app/data
 
-# 启动脚本（包含 nginx 配置生成）
+# 启动脚本
 COPY railway/start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
 ENV DB_PATH=/app/data/data.db
 
-# Railway 会自动设置 PORT 环境变量
+# Railway 暴露端口
 EXPOSE 8080
 
+# 健康检查
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:${PORT:-8080}/health || exit 1
 
