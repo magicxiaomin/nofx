@@ -30,11 +30,13 @@ func main() {
 	logger.Info("╔════════════════════════════════════════════════════════════╗")
 	logger.Info("║           🚀 NOFX - AI-Powered Trading System              ║")
 	logger.Info("╚════════════════════════════════════════════════════════════╝")
+	logger.Info("✅ Telegram version")
 
 	// Initialize global configuration (loaded from .env)
 	config.Init()
 	cfg := config.Get()
 	logger.Info("✅ Configuration loaded")
+
 
 	// Initialize encryption service BEFORE database (so EncryptedString can decrypt on read)
 	logger.Info("🔐 Initializing encryption service...")
