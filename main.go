@@ -136,6 +136,17 @@ func main() {
 		}
 	}()
 
+	// Start Telegram Bot
+	tgBot, err := telegram.NewBot(traderManager, st)
+	if err != nil {
+   	 	// 如果没有配置 Token，打印警告但不要让程序崩溃，这样不影响交易功能
+		logger.Warnf("Telegram Bot 初始化跳过: %v", err)
+	} else if tgBot != nil {
+		// 使用 go 关键字让 Bot 在后台异步运行，不会阻塞主程序的启动
+   		go tgBot.Start()
+    	logger.Info("Telegram Bot 运行中...")
+	}
+
 	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
