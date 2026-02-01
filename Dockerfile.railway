@@ -1,5 +1,5 @@
 # --- 第一阶段：编译环境 (构建后端二进制) ---
-FROM golang:1.21-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # 安装构建 CGO 项目所需的工具（TA-Lib 依赖 C 环境）
 RUN apk add --no-cache gcc musl-dev linux-headers git
