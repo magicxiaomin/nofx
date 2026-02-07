@@ -584,6 +584,31 @@ func (b *Bot) watchDecisions() {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
+	// for range ticker.C {
+	// 	chatIDs := b.getAuthorizedChatIDs()
+	// 	if len(chatIDs) == 0 {
+	// 		continue
+	// 	}
+	// 	traders := b.manager.GetAllTraders()
+	// 	for id, t := range traders {
+	// 		// lastID := b.getDecisionCursor(id)
+	// 		records, err := b.store.Decision().GetLatestRecords(id, 20)
+	// 		if err != nil || len(records) == 0 {
+	// 			continue
+	// 		}
+	// 		for _, rec := range records {
+	// 			if b.shouldSkipDecisionNotify(rec) {
+	// 				b.setDecisionCursor(id, rec.ID)
+	// 				continue
+	// 			}
+	// 			msg := b.formatDecisionNotify(t.GetName(), rec)
+	// 			for _, chatID := range chatIDs {
+	// 				b.reply(chatID, msg)
+	// 			}
+	// 			b.setDecisionCursor(id, rec.ID)
+	// 		}
+	// 	}
+	// }
 	for range ticker.C {
 		chatIDs := b.getAuthorizedChatIDs()
 		if len(chatIDs) == 0 {
@@ -591,24 +616,62 @@ func (b *Bot) watchDecisions() {
 		}
 		traders := b.manager.GetAllTraders()
 		for id, t := range traders {
-			// lastID := b.getDecisionCursor(id)
+			// 1. 获取上次已通知的最后一条 ID (取消注释)
+			lastID := b.getDecisionCursor(id)
+
 			records, err := b.store.Decision().GetLatestRecords(id, 20)
 			if err != nil || len(records) == 0 {
 				continue
 			}
+
+			// 2. 筛选出新记录 (ID > lastID)
+			var newRecords []*model.Decision // 假设你的记录类型是 *model.Decision，请根据实际情况调整
 			for _, rec := range records {
+				if rec.ID > lastID {
+					newRecords = append(newRecords, rec)
+				}
+			}
+
+			if len(newRecords) == 0 {
+				continue // 没有新消息，跳过
+			}
+
+			// 3. 排序：确保按 ID 从小到大 (Oldest -> Newest) 发送
+			// 这样符合人类阅读习惯，也能保证 cursor 逻辑正确
+			sort.Slice(newRecords, func(i, j int) bool {
+				return newRecords[i].ID < newRecords[j].ID
+			})
+
+			// 4. 遍历新记录发送通知
+			for _, rec := range newRecords {
+				// 先更新游标，防止因为报错或其他原因导致死循环发送同一条
+				// 或者你可以选择在发送成功后再更新，取决于你对“不丢失”还是“不重复”更看重
+				// 这里建议处理完逻辑后再更新
+				
 				if b.shouldSkipDecisionNotify(rec) {
+					// 即使跳过通知，也要更新游标，表示这条我们已经“看过”了
 					b.setDecisionCursor(id, rec.ID)
 					continue
 				}
+
 				msg := b.formatDecisionNotify(t.GetName(), rec)
 				for _, chatID := range chatIDs {
 					b.reply(chatID, msg)
 				}
+
+				// 发送完毕，更新游标为当前这条 ID
 				b.setDecisionCursor(id, rec.ID)
 			}
 		}
 	}
+
+	if b.store == nil {
+		return
+	}
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	
 }
 
 func (b *Bot) shouldSkipDecisionNotify(rec *store.DecisionRecord) bool {
