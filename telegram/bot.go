@@ -13,8 +13,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"sort"
-
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
 
