@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"sort"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 )
@@ -610,46 +611,48 @@ func (b *Bot) watchDecisions() {
 	// 	}
 	// }
 	for range ticker.C {
+		// 使用 := 定义 chatIDs，确保这是新变量
 		chatIDs := b.getAuthorizedChatIDs()
 		if len(chatIDs) == 0 {
 			continue
 		}
+
 		traders := b.manager.GetAllTraders()
 		for id, t := range traders {
-			// 1. 获取上次已通知的最后一条 ID (取消注释)
 			lastID := b.getDecisionCursor(id)
 
+			// 获取最近的记录
 			records, err := b.store.Decision().GetLatestRecords(id, 20)
 			if err != nil || len(records) == 0 {
 				continue
 			}
 
-			// 2. 筛选出新记录 (ID > lastID)
-			var newRecords []*model.Decision // 假设你的记录类型是 *model.Decision，请根据实际情况调整
+			// 修复 undefined: model 错误
+			// 我们不直接声明 var newRecords []*model.Decision
+			// 而是复用 records 的类型创建一个新的切片 filtered
+			filtered := records[:0] 
+
+			// 筛选出新消息 (ID > lastID)
 			for _, rec := range records {
 				if rec.ID > lastID {
-					newRecords = append(newRecords, rec)
+					filtered = append(filtered, rec)
 				}
 			}
 
-			if len(newRecords) == 0 {
-				continue // 没有新消息，跳过
+			// 如果没有新消息，跳过
+			if len(filtered) == 0 {
+				continue
 			}
 
-			// 3. 排序：确保按 ID 从小到大 (Oldest -> Newest) 发送
-			// 这样符合人类阅读习惯，也能保证 cursor 逻辑正确
-			sort.Slice(newRecords, func(i, j int) bool {
-				return newRecords[i].ID < newRecords[j].ID
+			// 排序：按 ID 从小到大 (旧 -> 新)
+			sort.Slice(filtered, func(i, j int) bool {
+				return filtered[i].ID < filtered[j].ID
 			})
 
-			// 4. 遍历新记录发送通知
-			for _, rec := range newRecords {
-				// 先更新游标，防止因为报错或其他原因导致死循环发送同一条
-				// 或者你可以选择在发送成功后再更新，取决于你对“不丢失”还是“不重复”更看重
-				// 这里建议处理完逻辑后再更新
-				
+			// 发送通知
+			for _, rec := range filtered {
+				// 即使配置了“跳过通知”，也要更新游标，防止下次重复处理
 				if b.shouldSkipDecisionNotify(rec) {
-					// 即使跳过通知，也要更新游标，表示这条我们已经“看过”了
 					b.setDecisionCursor(id, rec.ID)
 					continue
 				}
@@ -658,19 +661,12 @@ func (b *Bot) watchDecisions() {
 				for _, chatID := range chatIDs {
 					b.reply(chatID, msg)
 				}
-
-				// 发送完毕，更新游标为当前这条 ID
+				
+				// 发送成功后更新游标
 				b.setDecisionCursor(id, rec.ID)
 			}
 		}
 	}
-
-	if b.store == nil {
-		return
-	}
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-
 	
 }
 
