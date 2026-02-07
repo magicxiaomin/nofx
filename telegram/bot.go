@@ -191,7 +191,7 @@ func (b *Bot) handleBalance(chatID int64, args []string) {
 	}
 
 	var err error
-		account, err = at.GetAccountInfo()
+		account, err := at.GetAccountInfo()
 		if err != nil {
 			b.reply(chatID, fmt.Sprintf("获取账户失败：%v", err))
 			return
