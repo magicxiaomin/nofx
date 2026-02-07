@@ -178,16 +178,7 @@ func (b *Bot) handleStatus(chatID int64, args []string) {
 		fmt.Sprintf("扫描周期：%v", status["scan_interval"]),
 	}
 
-	if ws, ok := status["user_data_ws"].(trader.UserDataStreamStatus); ok {
-		lines = append(lines, fmt.Sprintf("EXCHANGE_WS：%s", strings.ToUpper(ws.State)))
-	} else if wsMap, ok := status["user_data_ws"].(map[string]interface{}); ok {
-		lines = append(lines, fmt.Sprintf("EXCHANGE_WS：%s", strings.ToUpper(asString(wsMap["state"]))))
-	}
-	if ws, ok := status["mark_price_ws"].(trader.MarkPriceStreamStatus); ok {
-		lines = append(lines, fmt.Sprintf("MARK_PRICE_WS：%s", strings.ToUpper(ws.State)))
-	} else if wsMap, ok := status["mark_price_ws"].(map[string]interface{}); ok {
-		lines = append(lines, fmt.Sprintf("MARK_PRICE_WS：%s", strings.ToUpper(asString(wsMap["state"]))))
-	}
+	
 
 	b.reply(chatID, strings.Join(lines, "\n"))
 }
