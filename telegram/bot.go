@@ -190,12 +190,11 @@ func (b *Bot) handleBalance(chatID int64, args []string) {
 		return
 	}
 
-	var err error
-		account, err := at.GetAccountInfo()
-		if err != nil {
+	account, err := at.GetAccountInfo()
+	if err != nil {
 			b.reply(chatID, fmt.Sprintf("获取账户失败：%v", err))
 			return
-		}
+		}		
 
 	lines := []string{
 		fmt.Sprintf("交易员：%s", at.GetName()),
