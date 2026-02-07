@@ -127,8 +127,8 @@ func (b *Bot) handleMessage(msg *tgbotapi.Message) {
 		b.handlePositions(chatID, args)
 	case "orders":
 		b.handleOrders(chatID, args)
-	case "deferred":
-		b.handleDeferred(chatID, args)
+	// case "deferred":
+	// 	b.handleDeferred(chatID, args)
 	case "decision":
 		b.handleDecision(chatID, args)
 	case "alerts":
@@ -190,15 +190,12 @@ func (b *Bot) handleBalance(chatID int64, args []string) {
 		return
 	}
 
-	account, ok := at.GetAccountInfoCached()
-	if !ok {
-		var err error
+	var err error
 		account, err = at.GetAccountInfo()
 		if err != nil {
 			b.reply(chatID, fmt.Sprintf("获取账户失败：%v", err))
 			return
 		}
-	}
 
 	lines := []string{
 		fmt.Sprintf("交易员：%s", at.GetName()),
@@ -220,16 +217,12 @@ func (b *Bot) handlePositions(chatID int64, args []string) {
 	}
 
 	var positions []map[string]interface{}
-	if cached, ok := at.GetPositionsCached(); ok {
-		positions = cached
-	} else {
-		data, err := at.GetPositions()
+	data, err := at.GetPositions()
 		if err != nil {
 			b.reply(chatID, fmt.Sprintf("获取持仓失败：%v", err))
 			return
 		}
 		positions = data
-	}
 
 	if len(positions) == 0 {
 		b.reply(chatID, "当前无持仓。")
@@ -259,16 +252,12 @@ func (b *Bot) handleOrders(chatID int64, args []string) {
 	}
 
 	var orders []trader.OpenOrder
-	if cached, ok := at.GetOpenOrdersCached(""); ok {
-		orders = cached
-	} else {
-		data, err := at.GetOpenOrders("")
+	data, err := at.GetOpenOrders("")
 		if err != nil {
 			b.reply(chatID, fmt.Sprintf("获取挂单失败：%v", err))
 			return
 		}
 		orders = data
-	}
 
 	if len(orders) == 0 {
 		b.reply(chatID, "当前无挂单。")
@@ -287,25 +276,25 @@ func (b *Bot) handleOrders(chatID int64, args []string) {
 	b.reply(chatID, strings.Join(lines, "\n"))
 }
 
-func (b *Bot) handleDeferred(chatID int64, args []string) {
-	at, errMsg := b.resolveTrader(chatID, args)
-	if errMsg != "" {
-		b.reply(chatID, errMsg)
-		return
-	}
+// func (b *Bot) handleDeferred(chatID int64, args []string) {
+// 	at, errMsg := b.resolveTrader(chatID, args)
+// 	if errMsg != "" {
+// 		b.reply(chatID, errMsg)
+// 		return
+// 	}
 
-	orders := at.GetDeferredConditionalOrders("")
-	if len(orders) == 0 {
-		b.reply(chatID, "当前没有缓存的止盈止损。")
-		return
-	}
-	lines := []string{fmt.Sprintf("交易员：%s 缓存止盈止损", at.GetName())}
-	for _, order := range orders {
-		lines = append(lines, fmt.Sprintf("%s %s | SL %s | TP %s",
-			order.Symbol, order.PositionSide, formatFloat(order.StopLoss, 4), formatFloat(order.TakeProfit, 4)))
-	}
-	b.reply(chatID, strings.Join(lines, "\n"))
-}
+// 	orders := at.GetDeferredConditionalOrders("")
+// 	if len(orders) == 0 {
+// 		b.reply(chatID, "当前没有缓存的止盈止损。")
+// 		return
+// 	}
+// 	lines := []string{fmt.Sprintf("交易员：%s 缓存止盈止损", at.GetName())}
+// 	for _, order := range orders {
+// 		lines = append(lines, fmt.Sprintf("%s %s | SL %s | TP %s",
+// 			order.Symbol, order.PositionSide, formatFloat(order.StopLoss, 4), formatFloat(order.TakeProfit, 4)))
+// 	}
+// 	b.reply(chatID, strings.Join(lines, "\n"))
+// }
 
 func (b *Bot) handleDecision(chatID int64, args []string) {
 	at, errMsg := b.resolveTrader(chatID, args)
@@ -603,8 +592,8 @@ func (b *Bot) watchDecisions() {
 		}
 		traders := b.manager.GetAllTraders()
 		for id, t := range traders {
-			lastID := b.getDecisionCursor(id)
-			records, err := b.store.Decision().GetRecordsAfterID(id, lastID, 20)
+			// lastID := b.getDecisionCursor(id)
+			records, err := b.store.Decision().GetLatestRecords(id, 20)
 			if err != nil || len(records) == 0 {
 				continue
 			}
